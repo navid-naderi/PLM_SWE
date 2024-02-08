@@ -48,7 +48,7 @@ python run_ppi.py --run-id ppi_gold_swepooling_128refpoints_128slices_esm2_8m --
 
 # Acknowledgments
 
-This repository is based on the following repositories:
+This repository is built upon the following GitHub repositories:
 - [ConPLex](https://github.com/samsledje/ConPLex)
 - [PSWE](https://github.com/navid-naderi/PSWE)
 - [torchinterp1d](https://github.com/aliutkus/torchinterp1d)
