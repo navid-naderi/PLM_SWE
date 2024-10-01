@@ -20,7 +20,7 @@ pip install -r requirements.txt
 The `download_data.py` script can be used to download the datasets for the experiments into a new folder called `datasets` by running
 
 ```
-python download_data.py —-to datasets —-benchmarks davis bindingdb ppi_gold
+python download_data.py --to datasets --benchmarks davis bindingdb ppi_gold
 ```
 
 ## Running the Numerical Experiments
