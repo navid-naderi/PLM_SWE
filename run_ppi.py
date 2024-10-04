@@ -228,8 +228,9 @@ def main():
     logg.info(f"Using CUDA device {device}")
 
     # Set random seed
-    logg.debug(f"Setting random seed {config.replicate}")
-    set_random_seed(config.replicate)
+    SEED = config.replicate
+    logg.debug(f"Setting random seed {SEED}")
+    set_random_seed(SEED)
 
     # Load DataModule
     logg.info("Preparing DataModule")
