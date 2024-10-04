@@ -3,7 +3,7 @@ wandb_proj: ESM2_DTI_DAVIS # Weights and Biases project to log results to.
 wandb_save: False # Whether or not to log to Weights and Biases.
 log_file: ./logs/scratch_testing.log # Location of log file
 model_save_dir: ./best_models # Location to save best models
-data_cache_dir: ./datasets # Location of downloaded data (use `download.py`)
+data_cache_dir: ./datasets # Location of downloaded data (use `download_data.py`)
 
 # Misc
 device: 0 # CUDA device to use for training
