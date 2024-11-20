@@ -3,5 +3,6 @@ from .datamodules import (
     DTIDataModule,
     PPIDataModule,
     TDCDataModule,
+    SCLDataModule,
     get_task_dir,
 )

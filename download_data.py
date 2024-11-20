@@ -5,6 +5,7 @@ import urllib.request
 from argparse import ArgumentParser
 from functools import partial, wraps
 from pathlib import Path
+import tarfile 
 
 from data import get_task_dir
 from utils import config_logger, get_logger
@@ -18,6 +19,7 @@ def get_remote_path(bm: str):
     REMOTE_DATA_PATHS = {
         "davis": "https://raw.githubusercontent.com/samsledje/ConPLex_dev/main/dataset/DAVIS",
         "bindingdb": "https://raw.githubusercontent.com/samsledje/ConPLex_dev/main/dataset/BindingDB",
+        "scl": "https://zenodo.org/records/10631963/files",
         "ppi_gold": "https://figshare.com/ndownloader/files"
     }
     return REMOTE_DATA_PATHS[bm]
@@ -38,6 +40,8 @@ def add_args(parser: ArgumentParser):
         choices=[
             "davis",
             "bindingdb",
+            "scl",
+            "ec",
             "ppi_gold",
         ],
         help="Benchmarks to download.",
@@ -85,6 +89,10 @@ def main(args):
                 "41270481": "Intra2_pos_rr.txt",
                 "42862132": "human_swissprot_oneliner.fasta",
             }
+        elif bm == "scl":
+            fi_list = {
+                "data.tar.gz": "data.tar.gz",
+            }
         else:
             fi_list = {
                 "train.csv": "train.csv",
@@ -96,6 +104,19 @@ def main(args):
             remote_base = get_remote_path(bm)
             remote_path = f"{remote_base}/{fi}"
             download_safe(remote_path, local_path, key=f"{bm}/{fi}")
+
+        if bm == "scl":
+            file = tarfile.open(local_path)
+            file.extractall(task_dir)
+            file.close()
+            os.replace(f"{task_dir}/data/annotation/scl/balanced.csv", f"{task_dir}/balanced.csv")
+            # file.extract('annotation/scl/balanced.csv', task_dir)
+
+            # with tarfile.open(local_path, 'r:') as tar:
+            #     tar.extract('annotation/scl/balanced.csv', task_dir)
+
+            os.remove(local_path)
+            shutil.rmtree(f"{task_dir}/data/")
 
 if __name__ == "__main__":
     parser = ArgumentParser()

@@ -4,3 +4,4 @@ from .base import (
 )
 from .molecule import MorganFeaturizer
 from .protein import ESMFeaturizer
+from .protein import ProGenFeaturizer

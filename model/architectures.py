@@ -264,7 +264,7 @@ class Interp1d(torch.autograd.Function):
 
 
 class SWE_Pooling(nn.Module):
-    def __init__(self, d_in, num_ref_points, num_slices):
+    def __init__(self, d_in, num_slices, num_ref_points, freeze_swe=False):
         '''
         Produces fixed-dimensional permutation-invariant embeddings for input sets of arbitrary size based on sliced-Wasserstein embedding.
         Inputs:
@@ -278,16 +278,18 @@ class SWE_Pooling(nn.Module):
         self.num_slices = num_slices
 
         uniform_ref = torch.linspace(-1, 1, num_ref_points).unsqueeze(1).repeat(1, num_slices)
-        self.reference = nn.Parameter(uniform_ref)
+        self.reference = nn.Parameter(uniform_ref) # initalize the references using a uniform distribution
 
         self.theta = nn.utils.weight_norm(nn.Linear(d_in, num_slices, bias=False), dim=0)
-        if num_slices <= d_in:
-            nn.init.eye_(self.theta.weight_v)
-        else:
-            nn.init.normal_(self.theta.weight_v)
             
         self.theta.weight_g.data = torch.ones_like(self.theta.weight_g.data, requires_grad=False)
         self.theta.weight_g.requires_grad = False
+
+        nn.init.normal_(self.theta.weight_v) # initalize the slicers using a Gaussian distribution
+
+        if freeze_swe: # freezing the slicer and reference parameters
+            self.theta.weight_v.requires_grad = False
+            self.reference.requires_grad = False
 
         # weights to reduce the output embedding dimensionality
         self.weight = nn.Linear(num_ref_points, 1, bias=False)
@@ -311,7 +313,7 @@ class SWE_Pooling(nn.Module):
         M, _ = self.reference.shape
 
         if mask is None:
-            # serial implementation should be used if set sizes are different
+            # serial implementation should be used if set sizes are different and no input mask is provided
             Xslices_sorted, Xind = torch.sort(Xslices, dim=1)
 
             if M == N:
@@ -378,116 +380,10 @@ class SWE_Pooling(nn.Module):
         '''
         return self.theta(X)
 
-
-
-# class Pooling(nn.Module):
-#     def __init__(self, pooling, d_in=1, num_slices=1, num_ref_points=1):
-
-#         super(Pooling, self).__init__()
-
-#         self.pooling = pooling
-
-#         # pooling mechanism
-#         if self.pooling == 'SWE':
-#             self.pool = PSWE(d_in, num_ref_points, num_slices)
-#             self.num_outputs = num_slices
-#         else:
-#             raise ValueError('Pooling type {} not implemented!'.format(pooling))
-
-#     def forward(self, P, mask=None):
-#         """
-#         Input size: B x N x d_in
-#         B: batch size, N: # elements per set, d_in: # features per element
-
-#         Output size: B x self.num_outputs
-#         """
-
-#         # apply pooling
-#         U = self.pool(P, mask).view(-1, self.num_outputs)
-
-#         return U
-
-
 #######################
 # Model Architectures #
 #######################
-
-
-class PPIPooling(nn.Module):
-    def __init__(
-        self,
-        # drug_shape=2048,
-        target_shape=1024,
-        latent_dimension=1024,
-        latent_activation="ReLU",
-        latent_distance="Cosine",
-        classify=True,
-        pooling="avg",
-        num_slices=1,
-        num_ref_points=1,
-    ):
-        super().__init__()
-        # self.drug_shape = drug_shape
-        self.target_shape = target_shape
-        self.latent_dimension = latent_dimension
-        self.do_classify = classify
-        self.latent_activation = ACTIVATIONS[latent_activation]
-        self.pooling_operation = pooling
-
-        if self.pooling_operation == 'swe':
-            self.pooling = SWE_Pooling(d_in=target_shape, num_slices=num_slices, num_ref_points=num_ref_points)
-            self.target_shape = num_slices # override the target embedding dimensionality
-            
-        self.target_projector = nn.Sequential(
-            nn.Linear(self.target_shape, latent_dimension), self.latent_activation()
-        )
-        nn.init.xavier_normal_(self.target_projector[0].weight)
-
-        if self.do_classify:
-            self.distance_metric = latent_distance
-            self.activator = DISTANCE_METRICS[self.distance_metric]()
-
-
-    def forward(self, proteins):
-        if self.do_classify:
-            return self.classify(proteins)
-        else:
-            raise Exception
-
-    def set_reference(self, ref):
-        self.pooling.pool.set_reference(ref)
-
-    def classify(self, proteins):
-
-        aggregated_proteins = self.target_pooling(proteins)
-        proteins_projection = self.target_projector(aggregated_proteins)
-
-        num_pairs = len(proteins_projection) // 2
-
-        distance = self.activator(proteins_projection[:num_pairs], proteins_projection[num_pairs:])
-                
-        return distance.squeeze()
-
-    def target_pooling(self, target):
-
-        if len(target.shape) == 2: # already pooled
-            return target
-
-        if self.pooling_operation == 'avg':
-            mask = (target != FOLDSEEK_MISSING_IDX)
-            aggregated_target = torch.sum(target * mask, dim=1) / torch.sum(mask, dim=1)
-            return aggregated_target
-
-        elif 'swe' in self.pooling_operation:
-
-            mask = (target != FOLDSEEK_MISSING_IDX)[:, :, 0]
-            aggregated_target = self.pooling(target, mask)
-            return aggregated_target
-
-        else:
-            raise Exception('Pooling {} not supported!'.format(self.pooling_operation))
-
-            
+    
 class DTIPooling(nn.Module):
     def __init__(
         self,
@@ -498,8 +394,9 @@ class DTIPooling(nn.Module):
         latent_distance="Cosine",
         classify=True,
         pooling="avg",
-        num_slices=1,
         num_ref_points=1,
+        freeze_swe=False,
+        num_slices=-1, # if this is set to -1 (default), the number of slices will be automatically set to the PLM output embedding dimensionality
     ):
         super().__init__()
         self.drug_shape = drug_shape
@@ -510,8 +407,13 @@ class DTIPooling(nn.Module):
         self.pooling_operation = pooling
 
         if self.pooling_operation == 'swe':
-            self.pooling = SWE_Pooling(d_in=target_shape, num_slices=num_slices, num_ref_points=num_ref_points)
-            self.target_shape = num_slices # override the target embedding dimensionality
+            if num_slices == -1:
+                num_slices = target_shape # override the number of slices to the PLM output embedding dimensionality
+            self.pooling = SWE_Pooling(d_in=target_shape, num_slices=num_slices, num_ref_points=num_ref_points, freeze_swe=freeze_swe)
+        elif self.pooling_operation == 'light_attn':
+            self._la_w1 = nn.Conv1d(target_shape, target_shape, 5, padding=2)
+            self._la_w2 = nn.Conv1d(target_shape, target_shape, 5, padding=2)
+            self._la_mlp = nn.Linear(2 * target_shape, target_shape)
 
         self.drug_projector = nn.Sequential(
             nn.Linear(self.drug_shape, latent_dimension), self.latent_activation()
@@ -546,9 +448,6 @@ class DTIPooling(nn.Module):
         ).squeeze()
         return inner_prod.squeeze()
 
-    def set_reference(self, ref):
-        self.pooling.pool.set_reference(ref)
-
     def classify(self, drug, target):
 
         drug_projection = self.drug_projector(drug)
@@ -568,11 +467,191 @@ class DTIPooling(nn.Module):
             aggregated_target = torch.sum(target * mask, dim=1) / torch.sum(mask, dim=1)
             return aggregated_target
 
+        elif self.pooling_operation == 'max':
+            mask = (target != FOLDSEEK_MISSING_IDX)
+            aggregated_target = torch.amax(target + ~mask * (-1e10), dim=1) # replace the missing elements with a large negative value
+            return aggregated_target
+
+        elif self.pooling_operation == 'topk':
+            mask = (target != FOLDSEEK_MISSING_IDX)
+            _temp = target + ~mask * (-1e10) # replace the missing elements with a large negative value
+            val, _ = torch.topk(_temp, k=5, dim=1) # focusing on the top-5 elements; k can be manually changed here to focus on fewer/more top elements
+            aggregated_target = val.mean(dim=1)
+            return aggregated_target
+
+        elif self.pooling_operation == 'light_attn':
+            _temp = target.permute(0, 2, 1)
+            mask = (_temp != FOLDSEEK_MISSING_IDX)
+
+            a = self._la_w1(_temp).masked_fill(~mask, -1e10).softmax(dim=-1) # replace the missing elements with a large negative value
+            v = self._la_w2(_temp)
+            v_max = torch.amax(v + ~mask * (-1e10), dim=-1) # replace the missing elements with a large negative value
+            v_sum = (a * v).sum(dim=-1)
+            aggregated_target = self._la_mlp(torch.cat([v_max, v_sum], dim=1))
+
+            return aggregated_target
+
         elif self.pooling_operation == 'swe':
+            mask = (target != FOLDSEEK_MISSING_IDX)[:, :, 0]
+            aggregated_target = self.pooling(target, mask)
+            return aggregated_target
+
+        else:
+            raise Exception('Pooling {} not supported!'.format(self.pooling_operation))
+
+class SCLPooling(nn.Module):
+    def __init__(
+        self,
+        target_shape=1024,
+        latent_dimension=1024,
+        num_classes=10,
+        latent_activation="ReLU",
+        latent_distance="Cosine",
+        classify=True,
+        pooling="avg",
+        num_ref_points=1,
+        freeze_swe=False,
+        num_slices=-1, # if this is set to -1 (default), the number of slices will be automatically set to the PLM output embedding dimensionality
+    ):
+        super().__init__()
+        self.target_shape = target_shape
+        self.latent_dimension = latent_dimension
+        self.num_classes = num_classes
+        self.do_classify = classify
+        self.latent_activation = ACTIVATIONS[latent_activation]
+        self.pooling_operation = pooling
+
+        if self.pooling_operation == 'swe':
+            if num_slices == -1:
+                num_slices = target_shape # override the number of slices to the PLM output embedding dimensionality
+            self.pooling = SWE_Pooling(d_in=target_shape, num_slices=num_slices, num_ref_points=num_ref_points, freeze_swe=freeze_swe)
+        elif self.pooling_operation == 'light_attn':
+            self._la_w1 = nn.Conv1d(target_shape, target_shape, 5, padding=2)
+            self._la_w2 = nn.Conv1d(target_shape, target_shape, 5, padding=2)
+            self._la_mlp = nn.Linear(2 * target_shape, target_shape)
+
+        if self.do_classify:
+            self.classifier = nn.Linear(self.target_shape, num_classes)
+            nn.init.xavier_normal_(self.classifier.weight)
+        else:
+            raise Exception
+
+    def forward(self, target):
+        if self.do_classify:
+            return self.classify(target)
+        else:
+            raise Exception
+
+    def classify(self, target):
+        aggregated_target = self.target_pooling(target)
+        logits = self.classifier(aggregated_target)
+        return logits
+
+    def target_pooling(self, target):
+
+        if len(target.shape) == 2: # already pooled
+            return target
+
+        if self.pooling_operation == 'avg':
+            mask = (target != FOLDSEEK_MISSING_IDX)
+            aggregated_target = torch.sum(target * mask, dim=1) / torch.sum(mask, dim=1)
+            return aggregated_target
+
+        elif self.pooling_operation == 'max':
+            mask = (target != FOLDSEEK_MISSING_IDX)
+            aggregated_target = torch.amax(target + ~mask * (-1e10), dim=1) # replace the missing elements with a large negative value
+            return aggregated_target
+
+        elif self.pooling_operation == 'topk':
+            mask = (target != FOLDSEEK_MISSING_IDX)            
+            _temp = target + ~mask * (-1e10) # replace the missing elements with a large negative value
+            val, _ = torch.topk(_temp, k=5, dim=1)
+            aggregated_target = val.mean(dim=1)
+            return aggregated_target
+
+        elif self.pooling_operation == 'light_attn':
+            _temp = target.permute(0, 2, 1)
+            mask = (_temp != FOLDSEEK_MISSING_IDX)
+
+            a = self._la_w1(_temp).masked_fill(~mask, -1e10).softmax(dim=-1) # replace the missing elements with a large negative value
+            v = self._la_w2(_temp)
+            v_max = torch.amax(v + ~mask * (-1e10), dim=-1) # replace the missing elements with a large negative value
+            v_sum = (a * v).sum(dim=-1)
+            aggregated_target = self._la_mlp(torch.cat([v_max, v_sum], dim=1))
+
+            return aggregated_target
+
+        elif self.pooling_operation == 'swe':
+            mask = (target != FOLDSEEK_MISSING_IDX)[:, :, 0]
+            aggregated_target = self.pooling(target, mask)
+            return aggregated_target
+
+        else:
+            raise Exception('Pooling {} not supported!'.format(self.pooling_operation))
+
+class PPIPooling(nn.Module):
+    def __init__(
+        self,
+        target_shape=1024,
+        latent_dimension=1024,
+        latent_activation="ReLU",
+        latent_distance="Cosine",
+        classify=True,
+        pooling="avg",
+        num_slices=1,
+        num_ref_points=1,
+    ):
+        super().__init__()
+        self.target_shape = target_shape
+        self.latent_dimension = latent_dimension
+        self.do_classify = classify
+        self.latent_activation = ACTIVATIONS[latent_activation]
+        self.pooling_operation = pooling
+
+        if self.pooling_operation == 'swe':
+            self.pooling = SWE_Pooling(d_in=target_shape, num_slices=num_slices, num_ref_points=num_ref_points)
+            self.target_shape = num_slices # override the target embedding dimensionality
+            
+        self.target_projector = nn.Sequential(
+            nn.Linear(self.target_shape, latent_dimension), self.latent_activation()
+        )
+        nn.init.xavier_normal_(self.target_projector[0].weight)
+
+        if self.do_classify:
+            self.distance_metric = latent_distance
+            self.activator = DISTANCE_METRICS[self.distance_metric]()
+
+    def forward(self, proteins):
+        if self.do_classify:
+            return self.classify(proteins)
+        else:
+            raise Exception
+
+    def classify(self, proteins):
+
+        aggregated_proteins = self.target_pooling(proteins)
+        proteins_projection = self.target_projector(aggregated_proteins)
+
+        num_pairs = len(proteins_projection) // 2
+
+        distance = self.activator(proteins_projection[:num_pairs], proteins_projection[num_pairs:])
+                
+        return distance.squeeze()
+
+    def target_pooling(self, target):
+
+        if len(target.shape) == 2: # already pooled
+            return target
+
+        if self.pooling_operation == 'avg':
+            mask = (target != FOLDSEEK_MISSING_IDX)
+            aggregated_target = torch.sum(target * mask, dim=1) / torch.sum(mask, dim=1)
+            return aggregated_target
+
+        elif 'swe' in self.pooling_operation:
 
             mask = (target != FOLDSEEK_MISSING_IDX)[:, :, 0]
             aggregated_target = self.pooling(target, mask)
-
             return aggregated_target
 
         else:

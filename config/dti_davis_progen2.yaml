@@ -1,0 +1,36 @@
+# Logging and Paths
+wandb_proj: ProGen2_DTI_DAVIS # Weights and Biases project to log results to.
+wandb_save: False # Whether or not to log to Weights and Biases.
+log_file: ./logs/scratch_testing.log # Location of log file
+model_save_dir: ./best_models # Location to save best models
+data_cache_dir: ./datasets # Location of downloaded data (use `download_data.py`)
+
+# Misc
+device: 0 # CUDA device to use for training
+replicate: 12345 # Random seed
+verbosity: 3 # Verbosity level for logging
+
+# Task and Dataset
+task: davis # Benchmark task
+
+# Model and Featurizers
+drug_featurizer: MorganFeaturizer # Featurizer for small molecule drug SMILES (see `featurizer` documentation)
+target_featurizer: ProGenFeaturizer # Featurizer for protein sequences (see `featurizer` documentation)
+target_model_type: progen2-small # pre-trained ProGen2 model - one of "progen2-small", "progen2-medium", "progen2-base", "progen2-large"
+model_architecture: DTIPooling # Model architecture (see `models` documentation)
+latent_dimension: 1024 # Dimension of shared co-embedding space
+latent_distance: "Cosine" # Distance metric to use in learned co-embedding space
+pooling: "swe" # Pooling operation to be used for target embeddings - one of "avg", "max", "topk", "light_attn", "swe"
+num_ref_points: 100 # Number of points in the reference set (only for swe pooling; ignored for other pooling methods)
+freeze_swe: True # whether to freeze swe parameters (slicers and reference elements; ignored for other pooling methods)
+
+# Training
+epochs: 100 # Number of epochs to train for
+batch_size: 32 # Size of batch for binary data set
+shuffle: True # Whether to shuffle training data before batching
+num_workers: 0 # Number of workers for PyTorch DataLoader
+every_n_val: 1 # How often to run validation during training (epochs)
+
+## Learning Rate
+lr: 1e-4 # Learning rate for binary training
+lr_t0: 10 # With annealing, reset learning rate to initial value after this many epochs for binary traniing

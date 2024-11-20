@@ -20,8 +20,7 @@ from torch.utils import data
 from tqdm.auto import tqdm
 
 from data import (
-    DTIDataModule,
-    TDCDataModule,
+    SCLDataModule,
     get_task_dir,
 )
 from featurizer import get_featurizer
@@ -32,7 +31,7 @@ logg = get_logger()
 
 def add_args():
 
-    parser = ArgumentParser('Drug-Target Interaction Prediction with ESM-2/ProGen2 and Avg/Max/TopK/LightAttn/SWE aggregtion')
+    parser = ArgumentParser('Subcellular Localization with ESM-2 and Avg/SWE aggregtion')
 
     parser.add_argument("--run-id", required=True, help="Experiment ID", dest="run_id")
     parser.add_argument(
@@ -105,9 +104,6 @@ def add_args():
     model_group = parser.add_argument_group("Model and Featurizers")
 
     model_group.add_argument(
-        "--drug-featurizer", help="Drug featurizer", dest="drug_featurizer"
-    )
-    model_group.add_argument(
         "--target-featurizer", help="Target featurizer", dest="target_featurizer"
     )
     model_group.add_argument(
@@ -162,10 +158,7 @@ def test(model, data_generator, metrics, device=None, classify=True):
     metric_dict = {}
 
     for k, met_class in metrics.items():
-        if classify:
-            met_instance = met_class(task="binary")
-        else:
-            met_instance = met_class()
+        met_instance = met_class(task="multiclass", num_classes=model.num_classes)
         met_instance.to(device)
         met_instance.reset()
         metric_dict[k] = met_instance
@@ -196,9 +189,10 @@ def step(model, batch, device=None):
     if device is None:
         device = torch.device("cpu")
 
-    drug, target, label = batch
-    pred = model(drug.to(device), target.to(device))
-    label = Variable(torch.from_numpy(np.array(label)).float()).to(device)
+    target, label = batch
+    pred = model(target.to(device))
+    label = Variable(torch.from_numpy(np.array(label))).to(device)
+
     return pred, label
 
 def wandb_log(m, do_wandb=True):
@@ -242,36 +236,24 @@ def main():
     logg.info("Preparing DataModule")
     task_dir = get_task_dir(config.task, database_root=config.data_cache_dir)
 
-    drug_featurizer = get_featurizer(config.drug_featurizer, save_dir=task_dir)
     target_featurizer = get_featurizer(config.target_featurizer, save_dir=task_dir, per_tok=True, model_type=config.target_model_type)
 
-    if config.task == "dti_dg":
-        config.classify = False
-        config.latent_activation = "GELU"
-        config.watch_metric = "val/pcc"
-        datamodule = TDCDataModule(
+    
+    if config.task == "scl":
+        config.classify = True
+        config.watch_metric = "val/acc"
+        config.latent_activation = "ReLU"
+        datamodule = SCLDataModule(
             task_dir,
-            drug_featurizer,
             target_featurizer,
             device=device,
-            seed=config.replicate,
             batch_size=config.batch_size,
             shuffle=config.shuffle,
             num_workers=config.num_workers,
         )
     else:
-        config.classify = True
-        config.watch_metric = "val/aupr"
-        config.latent_activation = "ReLU"
-        datamodule = DTIDataModule(
-            task_dir,
-            drug_featurizer,
-            target_featurizer,
-            device=device,
-            batch_size=config.batch_size,
-            shuffle=config.shuffle,
-            num_workers=config.num_workers,
-        )
+        raise Exception
+
     datamodule.prepare_data()
     datamodule.setup()
 
@@ -281,15 +263,14 @@ def main():
     validation_generator = datamodule.val_dataloader()
     testing_generator = datamodule.test_dataloader()
 
-    config.drug_shape = drug_featurizer.shape
     config.target_shape = target_featurizer.shape
 
     # Model
     logg.info("Initializing model")
     model = getattr(model_types, config.model_architecture)(
-        config.drug_shape,
         config.target_shape,
         latent_dimension=config.latent_dimension,
+        num_classes=config.num_classes,
         latent_distance=config.latent_distance,
         latent_activation=config.latent_activation,
         classify=config.classify,
@@ -315,9 +296,9 @@ def main():
     logg.info("Initializing metrics")
     max_metric = 0
     model_max = getattr(model_types, config.model_architecture)(
-        config.drug_shape,
         config.target_shape,
         latent_dimension=config.latent_dimension,
+        num_classes=config.num_classes,
         latent_distance=config.latent_distance,
         latent_activation=config.latent_activation,
         classify=config.classify,
@@ -327,28 +308,17 @@ def main():
     )
     model_max.load_state_dict(model.state_dict())
 
-    if config.task == "dti_dg":
-        loss_fct = torch.nn.MSELoss()
+    if config.task == "scl":
+        loss_fct = torch.nn.CrossEntropyLoss()
         val_metrics = {
-            "val/mse": torchmetrics.MeanSquaredError,
-            "val/pcc": torchmetrics.PearsonCorrCoef,
+            "val/acc": torchmetrics.Accuracy,
         }
 
         test_metrics = {
-            "test/mse": torchmetrics.MeanSquaredError,
-            "test/pcc": torchmetrics.PearsonCorrCoef,
+            "test/acc": torchmetrics.Accuracy,
         }
     else:
-        loss_fct = torch.nn.BCELoss()
-        val_metrics = {
-            "val/aupr": torchmetrics.AveragePrecision,
-            "val/auroc": torchmetrics.AUROC,
-        }
-
-        test_metrics = {
-            "test/aupr": torchmetrics.AveragePrecision,
-            "test/auroc": torchmetrics.AUROC,
-        }
+        raise Exception
 
     # Initialize wandb
     do_wandb = config.wandb_save and ("wandb_proj" in config)

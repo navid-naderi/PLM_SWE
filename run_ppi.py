@@ -30,7 +30,7 @@ logg = get_logger()
 
 def add_args():
 
-    parser = ArgumentParser('Protein-Protein Interaction Prediction with ESM-2 and SWE aggregtion')
+    parser = ArgumentParser('Protein-Protein Interaction Prediction with ESM-2 and Avg/SWE aggregtion')
 
     parser.add_argument("--run-id", required=True, help="Experiment ID", dest="run_id")
     parser.add_argument(
