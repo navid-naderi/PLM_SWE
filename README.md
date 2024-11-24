@@ -1,14 +1,14 @@
 # Aggregating Residue-Level Protein Language Model Embeddings with Optimal Transport
 
-This repository contains the implementation code for our preprint [Aggregating Residue-Level Protein Language Model Embeddings with Optimal Transport](https://www.biorxiv.org/content/10.1101/2024.01.29.577794v1.abstract), which showcases the benefits of sliced-Wasserstein embedding to summarize token-level representations produced by pre-trained protein language models (PLMs), including ESM-2 and ProGen2.
+This repository contains the implementation code for our preprint [Aggregating Residue-Level Protein Language Model Embeddings with Optimal Transport](https://www.biorxiv.org/content/10.1101/2024.01.29.577794v2), which showcases the benefits of sliced-Wasserstein embedding to summarize token-level representations produced by pre-trained protein language models (PLMs), including ESM-2 and ProGen2.
 
-![alt text](https://github.com/navid-naderi/PLM_SWE/blob/main/assets/pooling_plm.png?raw=true)
+![Aggregation operations are needed to summarize variable-length outputs of protein language models (PLMs) into fixed-length representations.](https://github.com/navid-naderi/PLM_SWE/blob/main/assets/pooling_plm.png?raw=true)
 
 ## Abstract
 
 Protein language models (PLMs) have emerged as powerful approaches for mapping protein sequences into embeddings suitable for various applications. As protein representation schemes, PLMs generate per-token (i.e., per-residue) representations, resulting in variable-sized outputs based on protein length. This variability poses a challenge for protein-level prediction tasks that require uniform-sized embeddings for consistent analysis across different proteins. Previous work has typically used average pooling to summarize token-level PLM outputs, but it is unclear whether this method effectively prioritizes the relevant information across token-level representations. We introduce a novel method utilizing optimal transport to convert variable-length PLM outputs into fixed-length representations. We conceptualize per-token PLM outputs as samples from a probabilistic distribution and employ sliced-Wasserstein distances to map these samples against a reference set, creating a Euclidean embedding in the output space. The resulting embedding is agnostic to the length of the input and represents the entire protein. We demonstrate the superiority of our method over average pooling for several downstream prediction tasks, particularly with constrained PLM sizes, enabling smaller-scale PLMs to match or exceed the performance of average-pooled larger-scale PLMs. Our aggregation scheme is especially effective for longer protein sequences by capturing essential information that might be lost through average pooling.
 
-![alt text](https://github.com/navid-naderi/PLM_SWE/blob/main/assets/fig_overview_swe.png?raw=true)
+![An overview of our proposed SWE pooling method for PLMs, where we learn a set of reference anchors and compute the optimal transport distances between the PLM embeddings and these references. Specifically, we use sliced Wasserstein distances, which make this computation efficient.](https://github.com/navid-naderi/PLM_SWE/blob/main/assets/fig_overview_swe.png?raw=true)
 
 ## Setting Up the Environment
 
