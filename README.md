@@ -24,7 +24,7 @@ pip install -r requirements.txt
 The `download_data.py` script can be used to download the datasets for the experiments into a new folder called `datasets` by running
 
 ```
-python download_data.py --to datasets --benchmarks davis bindingdb scl ppi_gold
+python download_data.py --to datasets --benchmarks davis bindingdb scl ec ppi_gold
 ```
 
 ## Downloading the ProGen2 Checkpoints
@@ -75,9 +75,9 @@ python run_dti.py --run-id dti_tdc_dg_swepooling_100refpoints_freezeTrue_esm2_8m
 python run_scl.py --run-id scl_swepooling_100refpoints_freezeFalse_esm2_8m --config config/scl_esm2.yaml --pooling swe --num-ref-points 100 --freeze-swe False --target-model-type esm2_t6_8M_UR50D
 ```
 
-### Enzyme Commission [To Be Added]
+### Enzyme Commission
 ```
-python tbd.py
+python run_ec.py -c config/ec_esm2.yaml  --modeldir ec/model --pooling swe --num_swe_ref_points 100 --freeze_swe False --model ESM-2-8M --seed 12345
 ```
 
 ### Protein-Protein Interaction

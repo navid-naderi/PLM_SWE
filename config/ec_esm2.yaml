@@ -1,0 +1,48 @@
+output_dir: ec_results
+
+dataset:
+  class: EC
+  path: datasets/EC/ec
+  percent: 95
+  transform:
+    class: Compose
+    transforms:
+      - class: ProteinView
+        view: residue
+      - class: TruncateProtein
+        max_length: 550
+
+task:
+  class: FunctionAnnotation
+  model:
+    class: ESM
+    path: {{ modeldir }}
+    model: {{ model }}
+  mlp_batch_norm: True
+  mlp_dropout: 0.2
+  metric: ['auprc@micro', 'f1_max']
+  pooling_operation: {{ pooling }}
+  num_swe_ref_points: {{ num_swe_ref_points }}
+  freeze_swe: {{ freeze_swe }}
+
+optimizer:
+  class: Adam
+  lr: 1.0e-3
+
+scheduler:
+  class: ReduceLROnPlateau
+  factor: 0.6
+  patience: 5
+
+engine:
+  gpus: [0]
+  batch_size: 8
+  log_interval: 50
+
+eval_metric: f1_max
+lr_ratio: 0.0
+
+model_checkpoint: null
+
+train:
+  num_epoch: 50

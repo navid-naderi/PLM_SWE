@@ -14,16 +14,15 @@ logg = config_logger(
     None, "%(asctime)s [%(levelname)s] %(message)s", level=2, use_stdout=True
 )
 
-
 def get_remote_path(bm: str):
     REMOTE_DATA_PATHS = {
         "davis": "https://raw.githubusercontent.com/samsledje/ConPLex_dev/main/dataset/DAVIS",
         "bindingdb": "https://raw.githubusercontent.com/samsledje/ConPLex_dev/main/dataset/BindingDB",
         "scl": "https://zenodo.org/records/10631963/files",
+        "ec": "https://huggingface.co/datasets/Oxer11/Protein-Function-Annotation/resolve/main",
         "ppi_gold": "https://figshare.com/ndownloader/files"
     }
     return REMOTE_DATA_PATHS[bm]
-
 
 def add_args(parser: ArgumentParser):
     parser.add_argument(
@@ -48,7 +47,6 @@ def add_args(parser: ArgumentParser):
     )
 
     return parser
-
 
 def download_safe(
     remote_path: str, local_path: str, key: str = "file", verbose: bool = True
@@ -93,6 +91,10 @@ def main(args):
             fi_list = {
                 "data.tar.gz": "data.tar.gz",
             }
+        elif bm == "ec":
+            fi_list = {
+                "ec.tar.gz": "ec.tar.gz",
+            }
         else:
             fi_list = {
                 "train.csv": "train.csv",
@@ -110,13 +112,18 @@ def main(args):
             file.extractall(task_dir)
             file.close()
             os.replace(f"{task_dir}/data/annotation/scl/balanced.csv", f"{task_dir}/balanced.csv")
-            # file.extract('annotation/scl/balanced.csv', task_dir)
-
-            # with tarfile.open(local_path, 'r:') as tar:
-            #     tar.extract('annotation/scl/balanced.csv', task_dir)
-
             os.remove(local_path)
             shutil.rmtree(f"{task_dir}/data/")
+
+        elif bm == "ec":
+            file = tarfile.open(local_path)
+            file.extractall(task_dir)
+            file.close()
+            # os.replace(f"{task_dir}/ec/train.fasta", f"{task_dir}/train.fasta")
+            # os.replace(f"{task_dir}/ec/valid.fasta", f"{task_dir}/valid.fasta")
+            # os.replace(f"{task_dir}/ec/test.fasta", f"{task_dir}/test.fasta")
+            os.remove(local_path)
+            # shutil.rmtree(f"{task_dir}/ec/")
 
 if __name__ == "__main__":
     parser = ArgumentParser()

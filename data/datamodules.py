@@ -55,6 +55,7 @@ def get_task_dir(task_name: str, database_root: Path):
         "davis": database_root / "DAVIS",
         "dti_dg": database_root / "TDC",
         "scl": database_root / "SCL",
+        "ec": database_root / "EC",
         "ppi_gold": database_root / "PPI_Gold",
     }
 
