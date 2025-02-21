@@ -296,15 +296,13 @@ class SWE_Pooling(nn.Module):
 
     def forward(self, X, mask=None):
         '''
-        Calculates GSW between two empirical distributions.
-        Note that the number of samples is assumed to be equal
-        (This is however not necessary and could be easily extended
-        for empirical distributions with different number of samples)
+        Calculates SWE pooling of X over its second dimension (i.e., sequence length)
+        
         Input:
-            X:  B x N x dn tensor, containing a batch of B sets, each containing N samples in a dn-dimensional space
-            mask [optional]: B x N binary tensor, with 1 iff the set element is valid; used for the case where set sizes are different
+            X:  B x N x d_in tensor, containing a batch of B sequences, each containing N embeddings in a d_in-dimensional space
+            mask [optional]: B x N binary tensor, with 1 iff the sequence element is valid; used for the case where sequence lengths are different
         Output:
-            weighted_embeddings: B x num_slices tensor, containing a batch of B embeddings, each of dimension "num_slices" (i.e., number of slices)
+            weighted_embeddings: B x num_slices tensor, containing a batch of B pooled embeddings, each of dimension "num_slices" (i.e., number of slices)
         '''
 
         B, N, _ = X.shape       
