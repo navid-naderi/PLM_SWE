@@ -1,6 +1,6 @@
 # Aggregating Residue-Level Protein Language Model Embeddings with Optimal Transport
 
-This repository contains the implementation code for our preprint [Aggregating Residue-Level Protein Language Model Embeddings with Optimal Transport](https://www.biorxiv.org/content/10.1101/2024.01.29.577794v2), which showcases the benefits of sliced-Wasserstein embedding to summarize token-level representations produced by pre-trained protein language models (PLMs), including ESM-2 and ProGen2.
+This repository contains the implementation code for our paper [Aggregating Residue-Level Protein Language Model Embeddings with Optimal Transport](https://doi.org/10.1093/bioadv/vbaf060), which showcases the benefits of sliced-Wasserstein embedding to summarize token-level representations produced by pre-trained protein language models (PLMs), including ESM-2 and ProGen2.
 
 ![Aggregation operations are needed to summarize variable-length outputs of protein language models (PLMs) into fixed-length representations.](https://github.com/navid-naderi/PLM_SWE/blob/main/assets/pooling_plm.png?raw=true)
 
@@ -98,13 +98,16 @@ This repository is built upon the following GitHub repositories:
 
 # Citation
 
-If you make use of this repository, please cite our preprint using the following BibTeX format:
+If you make use of this repository, please cite our paper using the following BibTeX format:
 ```
-@article{naderializadeh2024_plm_swe,
-  title={Aggregating Residue-Level Protein Language Model Embeddings with Optimal Transport},
+@article{naderializadeh2025_plm_swe,
+  title={Aggregating residue-level protein language model embeddings with optimal transport},
   author={NaderiAlizadeh, Navid and Singh, Rohit},
-  journal={bioRxiv},
-  year={2024},
-  publisher={Cold Spring Harbor Laboratory}
+  journal={Bioinformatics Advances},
+  volume={5},
+  number={1},
+  pages={vbaf060},
+  year={2025},
+  publisher={Oxford University Press}
 }
 ```
